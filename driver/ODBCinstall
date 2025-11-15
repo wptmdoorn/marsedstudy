@@ -1,0 +1,242 @@
+#!/bin/sh
+
+ODBC_PLATFORM="lnxubuntux64"
+
+KITBINFILES="cconnect.so cgate.so cgateiw.so cgateu.so cgateur64.so libcachedb.so libcacheodbc.so libcacheodbc35.so libcacheodbciw.so libcacheodbciw35.so libcacheodbcu.so libcacheodbcu35.so libcacheodbcur64.so libcacheodbcur6435.so libcacheodbcuw.so libcacheodbcuw35.so libiodbc.so libodbc.so"
+
+# ODBCinstall kit builder inserts some lines at the beginning
+
+# Display the welcome message
+
+PWD=`pwd`
+PLAT=`uname`
+ODBCDIR="$PWD/dev/odbc"
+ODBCBINDIR="$PWD/bin"
+ODBCLOG="/odbcinstall.log"
+IODBCDIR="$ODBCDIR/redist/iodbc"
+UNIXODBCDIR="$ODBCDIR/redist/unixodbc"
+CACHEODBCINI="$PWD/mgr/cacheodbc.ini"
+SELECTSH="$ODBCDIR/samples/select/select.sh"
+SELECTUSH="$ODBCDIR/samples/select/selectu.sh"
+GATEWAYSH="$ODBCDIR/samples/sqlgateway/gatewaytest.sh"
+DBLIBDIR="$PWD/dev/dblib"
+DBLIBTESTDIR="$DBLIBDIR/samples/dblibtest"
+DBLIBTESTSH="$DBLIBDIR/samples/dblibtest/dblibtest.sh"
+
+if [ "$1" = "" ]; then
+	SSPORT="1972"
+else
+	SSPORT=$1
+fi
+
+if [ "$2" = "" ]; then
+	CACHEPASSWD="SYS"
+else
+	CACHEPASSWD=$2
+fi
+
+#Platform specific stuff
+case $PLAT in
+	AIX)	ID=id ; shared_ext=so ; dynamic_ext=so ; LIBPATH_VAR_NAME=LIBPATH ;;
+	Darwin)	ID=id ; shared_ext=so ; dynamic_ext=dylib ; LIBPATH_VAR_NAME=DYLD_LIBRARY_PATH ;;
+	HP-UX)	ID=id ; shared_ext=sl ; dynamic_ext=sl ; LIBPATH_VAR_NAME=SHLIB_PATH ;;
+	SunOS)	ID=/usr/xpg4/bin/id ; shared_ext=so ; dynamic_ext=so ; LIBPATH_VAR_NAME=LD_LIBRARY_PATH ;;
+	*)	ID=id ; shared_ext=so ; dynamic_ext=so ; LIBPATH_VAR_NAME=LD_LIBRARY_PATH ;;
+esac
+
+# Setup Links for iodbc shared object
+if [ -d "$ODBCBINDIR" ]; then
+	WORKINGDIR=`pwd`
+	cd $ODBCBINDIR
+	chgrp `$ID -g` $KITBINFILES
+	chown `$ID -u` $KITBINFILES
+	cd $WORKINGDIR
+fi
+
+if [ -d "$IODBCDIR" ]; then
+	chgrp `$ID -g` $IODBCDIR
+	chown `$ID -u` $IODBCDIR
+	rm -f $IODBCDIR/libiodbc.${dynamic_ext}
+	
+	if [ -f "$ODBCBINDIR/libiodbc.${dynamic_ext}" ]; then
+		ln -sf $ODBCBINDIR/libiodbc.${dynamic_ext} $IODBCDIR/libiodbc.${dynamic_ext}
+	fi
+
+	ODBCDRIVER="$ODBCBINDIR/libcacheodbc35.${shared_ext}"
+fi
+
+if [ -d "$UNIXODBCDIR" ]; then
+	chgrp `$ID -g` $UNIXODBCDIR
+	chown `$ID -u` $UNIXODBCDIR
+	rm -f $UNIXODBCDIR/libodbc.s?
+	
+	if [ -f "$ODBCBINDIR/libodbc.${dynamic_ext}" ]; then
+		ln -sf $ODBCBINDIR/libodbc.${dynamic_ext} $UNIXODBCDIR/libodbc.${dynamic_ext}
+	else
+		if [ -f "$ODBCBINDIR/libodbc.so" ]; then
+			ln -sf $ODBCBINDIR/libodbc.so $UNIXODBCDIR/libodbc.so
+		fi
+	fi
+
+	UNIXODBCDRIVER="$ODBCBINDIR/libcacheodbcu35.${shared_ext}"
+fi
+
+if [ ! -f "$SELECTSH" ]; then
+        if [ ! -d "$ODBCDIR/samples/select" ]; then
+                mkdir $ODBCDIR/samples/select
+        fi
+	# Create the various parts of select.sh file
+	echo "    Creating select.sh ..."
+	echo "#!/bin/sh" > "$SELECTSH"
+	echo "" >> "$SELECTSH"
+	echo ODBCINI="$CACHEODBCINI" >> "$SELECTSH"
+	echo "export ODBCINI" >> "$SELECTSH"
+	echo ${LIBPATH_VAR_NAME}="$ODBCBINDIR" >> "$SELECTSH"
+	echo "export ${LIBPATH_VAR_NAME}" >> "$SELECTSH"
+	echo "" >> "$SELECTSH"
+	echo "echo \"select * from sample.person where ID < 11\" | ./select samples " >> "$SELECTSH"
+	chgrp `$ID -g` $SELECTSH
+	chown `$ID -u` $SELECTSH
+	chmod +x "$SELECTSH"
+fi
+
+if [ ! -f "$SELECTUSH" ]; then
+	# Create the various parts of selectu.sh file
+	echo "    Creating selectu.sh ..."
+	echo "#!/bin/sh" > "$SELECTUSH"
+	echo "" >> "$SELECTUSH"
+	echo ODBCINI="$CACHEODBCINI" >> "$SELECTUSH"
+	echo "export ODBCINI" >> "$SELECTUSH"
+	echo ${LIBPATH_VAR_NAME}="$ODBCBINDIR" >> "$SELECTUSH"
+	echo "export ${LIBPATH_VAR_NAME}" >> "$SELECTUSH"
+	echo "" >> "$SELECTUSH"
+	echo "echo \"select * from sample.person where ID < 11\" | ./selectu samplesunixodbc " >> "$SELECTUSH"
+	chgrp `$ID -g` $SELECTUSH
+	chown `$ID -u` $SELECTUSH
+	chmod +x "$SELECTUSH"
+fi
+
+if [ ! "$ODBC_PLATFORM" = "usparc32" ]; then 
+	if [ ! -f "$DBLIBTESTSH" ]; then
+        	if [ ! -d "$DBLIBTESTDIR" ]; then
+                	mkdir $DBLIBTESTDIR
+	        fi
+		# Create the various parts of select.sh file
+		echo "    Creating dblibtest.sh ..."
+		echo "#!/bin/sh" > "$DBLIBTESTSH"
+		echo "" >> "$DBLIBTESTSH"
+		echo ${LIBPATH_VAR_NAME}="$ODBCBINDIR" >> "$DBLIBTESTSH"
+		echo "export ${LIBPATH_VAR_NAME}" >> "$DBLIBTESTSH"
+		echo "" >> "$DBLIBTESTSH"
+		echo "#First argument is for connection" >> "$DBLIBTESTSH"
+		echo "#Second argument is SQL Statement" >> "$DBLIBTESTSH"
+		echo "echo ./dblibtest \"\\\"HOST=127.0.0.1;PORT=$SSPORT;NAMESPACE=SAMPLES;USER=_system;PWD=$CACHEPASSWD\\\"\" \"\\\"select * from 		sample.person where ID < 11\\\"\"" >> "$DBLIBTESTSH"
+		echo "./dblibtest \"HOST=127.0.0.1;PORT=$SSPORT;NAMESPACE=SAMPLES;USER=_system;PWD=$CACHEPASSWD\" \"select * from sample.person where ID < 11\"" >> "$DBLIBTESTSH"
+		echo "" >> "$DBLIBTESTSH"
+		echo "#Default test" >> "$DBLIBTESTSH"
+		echo "echo ./dblibtest" >> "$DBLIBTESTSH"
+		echo "./dblibtest" >> "$DBLIBTESTSH"
+		chgrp `$ID -g` $DBLIBTESTSH
+		chown `$ID -u` $DBLIBTESTSH
+		chmod +x "$DBLIBTESTSH"
+	fi
+
+	if [ ! -f "$GATEWAYSH" ]; then
+	        if [ ! -d "$ODBCDIR/samples/sqlgateway" ]; then
+                	mkdir $ODBCDIR/samples/sqlgateway
+        	fi
+		# Create the various parts of gatewaytest.sh file
+		echo "    Creating gatewaytest.sh ..."
+		echo "#!/bin/sh" > "$GATEWAYSH"
+		echo "" >> "$GATEWAYSH"
+		echo ODBCINI="$CACHEODBCINI" >> "$GATEWAYSH"
+		echo "export ODBCINI" >> "$GATEWAYSH"
+		echo ${LIBPATH_VAR_NAME}="$ODBCBINDIR" >> "$GATEWAYSH"
+		echo "export ${LIBPATH_VAR_NAME}" >> "$GATEWAYSH"
+		echo "" >> "$GATEWAYSH"
+		echo "#Using the following line does not require setting ODBCINI or LD_LIBRARY_PATH" >> "$GATEWAYSH"
+		echo "#csession <cacheconfigname> -U samples \"^SQLGatewayTest\"" >> "$GATEWAYSH"
+		echo "$PWD/bin/cache -s$PWD/mgr -U samples \"^SQLGatewayTest\"" >> "$GATEWAYSH"
+		chgrp `$ID -g` $GATEWAYSH
+		chown `$ID -u` $GATEWAYSH
+		chmod +x "$GATEWAYSH"
+	fi
+fi
+
+if [ ! -f "$CACHEODBCINI" ]; then
+	odbcinidir=`dirname $CACHEODBCINI`
+	if [ ! -d "$odbcinidir" ]; then
+		mkdir $odbcinidir
+	fi
+
+	# Create the various parts of CACHEODBCINI file
+	echo "    Creating cacheodbc.ini ..."
+	echo "[ODBC Data Sources]" > "$CACHEODBCINI"
+	echo "Samples = Samples" >> "$CACHEODBCINI"
+	echo "Samplesunixodbc = Samplesunixodbc" >> "$CACHEODBCINI"
+	echo "User = User" >> "$CACHEODBCINI"
+	echo "" >> "$CACHEODBCINI"
+	echo "[Samples]" >> "$CACHEODBCINI"
+	echo "Driver          = $ODBCDRIVER" >> "$CACHEODBCINI"
+	echo "Description     = Cache ODBC driver" >> "$CACHEODBCINI"
+	echo "Host            = localhost" >> "$CACHEODBCINI"
+	echo "Namespace       = SAMPLES" >> "$CACHEODBCINI"
+	echo "UID             = _SYSTEM" >> "$CACHEODBCINI"
+	echo "Password        = $CACHEPASSWD" >> "$CACHEODBCINI"
+	echo "Port            = $SSPORT" >> "$CACHEODBCINI"
+	echo "Protocol        = TCP" >> "$CACHEODBCINI"
+	echo "Query Timeout   = 1" >> "$CACHEODBCINI"
+	echo "Static Cursors  = 0" >> "$CACHEODBCINI"
+	echo "Trace           = off" >> "$CACHEODBCINI"
+	echo "TraceFile       = iodbctrace.log" >> "$CACHEODBCINI"
+	echo "Authentication Method   = 0" >> "$CACHEODBCINI"
+	echo "Security Level  = 2" >> "$CACHEODBCINI"
+	echo "Service Principal Name = cache/localhost.domain.com" >> "$CACHEODBCINI"
+	echo "" >> "$CACHEODBCINI"
+
+	echo "" >> "$CACHEODBCINI"
+	echo "[Samplesunixodbc]" >> "$CACHEODBCINI"
+	echo "Driver          = $UNIXODBCDRIVER" >> "$CACHEODBCINI"
+	echo "Description     = Cache ODBC driver" >> "$CACHEODBCINI"
+	echo "Host            = localhost" >> "$CACHEODBCINI"
+	echo "Namespace       = SAMPLES" >> "$CACHEODBCINI"
+	echo "UID             = _SYSTEM" >> "$CACHEODBCINI"
+	echo "Password        = $CACHEPASSWD" >> "$CACHEODBCINI"
+	echo "Port            = $SSPORT" >> "$CACHEODBCINI"
+	echo "Protocol        = TCP" >> "$CACHEODBCINI"
+	echo "Query Timeout   = 1" >> "$CACHEODBCINI"
+	echo "Static Cursors  = 0" >> "$CACHEODBCINI"
+	echo "Trace           = off" >> "$CACHEODBCINI"
+	echo "TraceFile       = iodbctrace.log" >> "$CACHEODBCINI"
+	echo "Authentication Method   = 0" >> "$CACHEODBCINI"
+	echo "Security Level  = 2" >> "$CACHEODBCINI"
+	echo "Service Principal Name = cache/localhost.domain.com" >> "$CACHEODBCINI"
+	echo "" >> "$CACHEODBCINI"
+
+	# Create the User Namespace
+	echo "[User]" >> "$CACHEODBCINI"
+	echo "Driver          = $ODBCDRIVER" >> "$CACHEODBCINI"
+	echo "Description     = Cache ODBC driver" >> "$CACHEODBCINI"
+	echo "Host            = localhost" >> "$CACHEODBCINI"
+	echo "Namespace       = USER" >> "$CACHEODBCINI"
+	echo "UID             = _SYSTEM" >> "$CACHEODBCINI"
+	echo "Password        = $CACHEPASSWD" >> "$CACHEODBCINI"
+	echo "Port            = $SSPORT" >> "$CACHEODBCINI"
+	echo "Protocol        = TCP" >> "$CACHEODBCINI"
+	echo "Query Timeout   = 1" >> "$CACHEODBCINI"
+	echo "Static Cursors  = 0" >> "$CACHEODBCINI"
+	echo "Trace           = off" >> "$CACHEODBCINI"
+	echo "TraceFile       = iodbctrace.log" >> "$CACHEODBCINI"
+	echo "Authentication Method   = 0" >> "$CACHEODBCINI"
+	echo "Security Level  = 2" >> "$CACHEODBCINI"
+	echo "Service Principal Name = cache/localhost.domain.com" >> "$CACHEODBCINI"
+	echo "" >> "$CACHEODBCINI"
+	chgrp `$ID -g` $CACHEODBCINI
+	chown `$ID -u` $CACHEODBCINI
+	chmod 644 "$CACHEODBCINI"
+fi
+
+echo ""
+echo " Done setting up ODBC and SQLGateway!"
+echo ""
+echo ""

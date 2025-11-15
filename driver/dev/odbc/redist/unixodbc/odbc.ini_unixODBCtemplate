@@ -1,0 +1,12 @@
+[samples]
+Driver=InterSystems ODBC
+Protocol=TCP
+Host=localhost
+Port=1972
+Namespace=SAMPLES
+UID=_system
+Password=sys
+Description=Sample namespace
+Query Timeout=0
+Static Cursors=0
+

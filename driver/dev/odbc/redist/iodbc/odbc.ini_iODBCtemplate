@@ -1,0 +1,29 @@
+[ODBC Data Sources]
+samples=samples
+user=user
+
+[samples]
+Driver=/home/cache/bin/libcacheodbc.so
+Description=InterSystems Cache
+Host=127.0.0.1
+Namespace=SAMPLES
+UID=_SYSTEM
+Password=SYS
+Port=1972
+Protocol=TCP
+Query Timeout=1
+Static Cursors=0
+Trace=off
+
+[user]
+Driver=/home/cache/bin/libcacheodbc.so
+Description=InterSystems Cache
+Host=127.0.0.1
+Namespace=USER
+UID=_SYSTEM
+Password=SYS
+Port=1972
+Protocol=TCP
+Query Timeout=1
+Static Cursors=0
+Trace=off
