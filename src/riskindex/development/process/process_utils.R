@@ -1,0 +1,40 @@
+#############################################
+# MARS-ED STUDY INTERFACE                   #
+# by William van Doorn                      #
+# riskindex/deveopme/process/process_utils.R#
+#                                           #
+# utils used in the data processing         #
+#############################################
+
+is_cat <- function(c) {
+  n_distinct(c) > 2 & n_distinct(c) < 10
+}
+
+one_hot_encoding = function(df, columns = "season") {
+  # create a copy of the original data.frame for not modifying the original
+  df = cbind(df)
+  # convert the columns to vector in case it is a string
+  columns = c(columns)
+  # for each variable perform the One hot encoding
+  for (column in columns) {
+    unique_values = sort(unique(df[column])[, column])
+    non_reference_values  = unique_values # the first element is going
+
+    if (column == "Geslacht") {
+      non_reference_values = c("M", "V")
+    }
+
+    # to be the reference by default
+    for (value in non_reference_values) {
+      # the new dummy column name
+      new_col_name = paste0(column, '.', value)
+      # create new dummy column for each value of the non_reference_values
+      df[new_col_name] <-
+        with(df, ifelse(df[, column] == value, 1, 0))
+    }
+    # delete the one hot encoded column
+    df[column] = NULL
+
+  }
+  return(df)
+}
